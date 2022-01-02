@@ -1,0 +1,48 @@
+server:
+  port: ${PORT:9380}
+  shutdown: graceful
+
+info:
+  app:
+    name: ${spring.application.name}
+    java:
+      version: ${java.version}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        exclude: shutdown
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+spring:
+  application:
+    name: loan
+  datasource:
+    url: ""
+    username: ""
+    password: ""
+    driver-class-name: org.postgresql.Driver
+    tomcat:
+      max-idle: 2
+      max-active: 10
+      test-on-borrow: true
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 10
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    generate-ddl: false
+    show-sql: false
+    properties.hibernate.temp.use_jdbc_metadata_defaults: false
+  flyway:
+    enabled: true
+    table: cloan_schema_version
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${DISCOVERY_URL:http://${DISCOVERY_HOST:localhost}:${DISCOVERY_PORT:8761}/eureka/}

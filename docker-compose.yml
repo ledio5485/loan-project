@@ -1,0 +1,133 @@
+version: '3.3'
+services:
+  traefik:
+    image: traefik:v2.2.1
+    command: --api.insecure=true --providers.docker
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  postgres:
+    image: postgres:12.3-alpine
+    #volumes:
+    #  - db-data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    ports:
+      - 5432:5432
+    environment:
+      - "POSTGRES_USER=admin"
+      - "POSTGRES_PASSWORD=admin"
+      - "POSTGRES_DB=defaultdb"
+      #- "POSTGRES_HOST_AUTH_METHOD=trust"
+    labels:
+      - "traefik.http.routers.postgres.rule=Host(`postgres.docker.localhost`)"
+    networks:
+      - homework_network
+
+  eureka:
+    build:
+      context: eureka
+    image: eureka
+    expose:
+      - 8761
+    ports:
+      - 8761:8761
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    labels:
+      - "traefik.http.routers.eureka.rule=Host(`eureka.docker.localhost`)"
+    networks:
+      - homework_network
+
+  gateway:
+    build:
+      context: gateway
+    image: gateway
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      SPRING_PROFILES_ACTIVE: cloud
+    ports:
+      - 9080:9080
+    labels:
+      - "traefik.http.routers.gateway.rule=Host(`gateway.docker.localhost`)"
+    restart: unless-stopped
+    depends_on:
+      - eureka
+    networks:
+      - homework_network
+
+  auth:
+    build:
+      context: auth
+    image: auth
+    ports:
+      - 9180:9180
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      SPRING_PROFILES_ACTIVE: cloud
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/defaultdb?currentSchema=auth&stringtype=unspecified&ApplicationName=auth
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      SPRING_FLYWAY_SCHEMAS: auth
+    labels:
+      - "traefik.http.routers.auth.rule=Host(`auth.docker.localhost`)"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - eureka
+    networks:
+      - homework_network
+
+  customer:
+    build:
+      context: customer
+    image: customer
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      SPRING_PROFILES_ACTIVE: cloud
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/defaultdb?currentSchema=customer&stringtype=unspecified&ApplicationName=customer
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      SPRING_FLYWAY_SCHEMAS: customer
+    ports:
+      - 9280:9280
+    labels:
+      - "traefik.http.routers.customer.rule=Host(`customer.docker.localhost`)"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - eureka
+    networks:
+      - homework_network
+
+  loan:
+    build:
+      context: loan
+    image: loan
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      SPRING_PROFILES_ACTIVE: cloud
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/defaultdb?currentSchema=loan&stringtype=unspecified&ApplicationName=loan
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      SPRING_FLYWAY_SCHEMAS: loan
+    ports:
+      - 9380:9380
+    labels:
+      - "traefik.http.routers.loan.rule=Host(`loan.docker.localhost`)"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - eureka
+    networks:
+      - homework_network
+
+networks:
+  homework_network:
+    driver: bridge
