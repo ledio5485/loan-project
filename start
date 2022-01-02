@@ -1,0 +1,5 @@
+#!/bin/bash
+
+./mvnw clean clean package -Dmaven.test.skip=true
+docker-compose up --build
+#docker-compose up
